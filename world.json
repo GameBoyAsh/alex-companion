@@ -4,44 +4,78 @@
     "village_square": {
       "name": "Village Square",
       "description": "A bustling square with a fountain in the center. There's a blacksmith to the north and a tavern to the east.",
-      "exits": {"north": "blacksmith", "east": "tavern", "south": "forest_path"},
-      "items": ["copper_coin"],
-      "npcs": ["village_elder"]
+      "exits": {
+        "north": "blacksmith",
+        "east": "tavern",
+        "south": "forest_path"
+      },
+      "items": [
+        "copper_coin"
+      ],
+      "npcs": [
+        "village_elder"
+      ]
     },
     "blacksmith": {
       "name": "Blacksmith Shop",
       "description": "A hot, smoky shop filled with the sound of hammering. The blacksmith works at his forge.",
-      "exits": {"south": "village_square"},
-      "items": ["rusty_sword"],
-      "npcs": ["blacksmith"]
+      "exits": {
+        "south": "village_square"
+      },
+      "items": [
+        "rusty_sword"
+      ],
+      "npcs": [
+        "blacksmith"
+      ]
     },
     "tavern": {
       "name": "The Prancing Pony Tavern",
       "description": "A cozy tavern with warm light and the smell of ale. Travelers share stories at wooden tables.",
-      "exits": {"west": "village_square"},
-      "items": ["ale_mug"],
-      "npcs": ["tavern_keeper", "mysterious_stranger"]
+      "exits": {
+        "west": "village_square"
+      },
+      "items": [
+        "ale_mug"
+      ],
+      "npcs": [
+        "tavern_keeper",
+        "mysterious_stranger"
+      ]
     },
     "forest_path": {
       "name": "Forest Path",
       "description": "A winding path through dense woods. Sunlight filters through the canopy above.",
-      "exits": {"north": "village_square", "east": "clearing"},
-      "items": ["healing_herb"],
+      "exits": {
+        "north": "village_square",
+        "east": "clearing"
+      },
+      "items": [
+        "healing_herb"
+      ],
       "npcs": []
     },
     "clearing": {
       "name": "Forest Clearing",
       "description": "A peaceful clearing with a small stream. Ancient ruins can be seen in the distance.",
-      "exits": {"west": "forest_path"},
-      "items": ["ancient_rune"],
-      "npcs": ["forest_spirit"]
+      "exits": {
+        "west": "forest_path"
+      },
+      "items": [
+        "ancient_rune"
+      ],
+      "npcs": [
+        "forest_spirit"
+      ]
     }
   },
-  "inventory": ["wooden_staff"],
+  "inventory": [
+    "wooden_staff"
+  ],
   "player_stats": {
     "health": 100,
     "level": 1,
     "experience": 0
   },
-  "companion_emotion": "curious"
+  "companion_emotion": "neutral"
 }

@@ -1,0 +1,81 @@
+---
+
+### 🌐 FRONTEND FEATURES:
+- Clean chat UI
+- Voice-to-text via Web Speech API
+- Text input box
+- Companion voice replies (browser speech synthesis)
+- Toggle (soft, not literal) between story and everyday chat via conversation
+- Small visual area (div) for generated images (add Replicate later)
+- Optional prompts from the companion (e.g., “Want to do something together?”)
+
+---
+
+### 🧠 MEMORY SYSTEM:
+- `memory.json` logs:
+  - User input
+  - AI response
+  - Emotion tags (e.g. "nostalgic", "happy", "anxious")
+  - Timestamps
+- `persona.json` adapts to repeated cues (user tone, preferred topics)
+- `companion_thoughts.json` stores simulated experiences while the user is away (e.g., "I read a book", "I watched the storm")
+- Emotional awareness in AI output (e.g. “You seem a little off today—everything okay?”)
+
+---
+
+### 🗺️ ADVENTURE SYSTEM:
+- Triggered conversationally:
+  > “Want to go exploring?” → begins a fantasy story/adventure
+- Uses `world.json` to store:
+  - Inventory
+  - Location
+  - Party (Companion + user-defined characters)
+  - Quests or goals
+- AI acts as both narrator and friend
+- Optional dice rolls for dramatic events
+- Visual prompts can be generated via Replicate later (placeholder for now)
+
+---
+
+### 🔉 VOICE SUPPORT:
+- Voice input via browser (Web Speech API)
+- Voice output via browser speech synthesis
+- Placeholder text-to-speech that can later be replaced by ElevenLabs integration
+
+---
+
+### 🔧 BACKEND (Flask) ENDPOINTS:
+- `POST /chat` → receives user input, processes memory/persona, returns AI response
+- `GET /memory` → retrieve log
+- `POST /adventure` → optional trigger for structured gameplay or quest moments
+- `POST /emotion` → optional hook for future emotion detection model
+
+---
+
+### 💬 GPT LOGIC (to be customized later):
+- Use OpenAI GPT-4 or similar
+- System prompt incorporates:
+  - Personality from `persona.json`
+  - Emotional memory
+  - Adventure/world state if relevant
+- Should shift naturally between real-world talk and roleplay/storytelling
+
+---
+
+### 🤖 STUBS & PLACEHOLDERS:
+- Placeholder GPT responses if API key not added yet
+- Placeholder image box for generated scenes
+- Dice roll function in `utils.py` (1d6, 1d20, etc.)
+
+---
+
+### 🧪 TESTABLE ON MOBILE:
+- Must run cleanly in Replit preview pane
+- Voice input works on mobile browser (Chrome preferred)
+- All data saved locally to .json files
+
+---
+
+Please scaffold the entire project with dummy data and placeholder AI replies, so I can customize GPT integration later. Add clear comments in each file to show where to insert real OpenAI/Replicate/ElevenLabs calls.
+
+This is for a sandbox prototype that may eventually become a deep AI companion platform.

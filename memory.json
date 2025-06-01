@@ -1,8 +1,34 @@
 {
-  "conversations": [],
+  "conversations": [
+    {
+      "timestamp": "2025-06-01T11:11:51.530048",
+      "user_message": "Hey chat, I want to play dnd today, are you up for that",
+      "ai_response": "I'm here and listening. What would you like to talk about today?",
+      "detected_emotion": "neutral",
+      "mode": "companion"
+    },
+    {
+      "timestamp": "2025-06-01T11:12:27.811163",
+      "user_message": "Look around",
+      "ai_response": "A bustling square with a fountain in the center. There's a blacksmith to the north and a tavern to the east. Items here: copper_coin People here: village_elder Exits: north, east, south",
+      "detected_emotion": "neutral",
+      "mode": "adventure"
+    },
+    {
+      "timestamp": "2025-06-01T11:14:10.495246",
+      "user_message": "Hey chat, im feeling a bit sad today",
+      "ai_response": "Your feelings are valid. Sometimes sharing what's on your mind can help lighten the burden.",
+      "detected_emotion": "sad",
+      "mode": "companion"
+    }
+  ],
   "companion_state": {
-    "emotion": "neutral",
-    "last_interaction": null,
-    "personality_traits": ["friendly", "curious", "helpful"]
+    "emotion": "sad",
+    "last_interaction": "2025-06-01T11:14:10.495241",
+    "personality_traits": [
+      "friendly",
+      "curious",
+      "helpful"
+    ]
   }
 }
