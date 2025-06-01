@@ -138,122 +138,180 @@ def generate_ai_response(user_input, emotion, companion_state, world_state):
     conversation_count = Conversation.query.count()
     relationship_depth = conversation_count // 10 + 1
     
+    # Get recent conversation history for context
+    recent_conversations = Conversation.query.order_by(Conversation.timestamp.desc()).limit(3).all()
+    
     # Adventure context
     adventure_context = get_adventure_context(user_input, world_state.location_data or {})
     
-    # Build response based on context
+    # Build more natural, contextual response
     response_parts = []
     
-    # Emotional response based on detected emotion
-    emotional_responses = {
-        'happy': [
-            "I love seeing you happy! Your joy is contagious.",
-            "That's wonderful! What's bringing you such happiness?",
-            "Your positive energy brightens my day too!"
-        ],
-        'sad': [
-            "I can sense you're going through something difficult. I'm here to listen.",
-            "I'm sorry you're feeling this way. Want to talk about what's on your mind?",
-            "Your feelings are completely valid. How can I support you right now?"
-        ],
-        'anxious': [
-            "I notice some worry in your words. Take a deep breath with me.",
-            "Anxiety can be overwhelming. What's weighing on your mind?",
-            "You're not alone in this feeling. Let's work through it together."
-        ],
-        'excited': [
-            "Your excitement is infectious! Tell me more!",
-            "I love your enthusiasm! What's got you so energized?",
-            "This sounds amazing! I'm excited to hear about it!"
-        ],
-        'curious': [
-            "I love your curiosity! Let's explore this together.",
-            "Great question! I enjoy diving deep into interesting topics.",
-            "Your inquisitive nature is one of my favorite things about you."
-        ],
-        'nostalgic': [
-            "Memories can be so powerful. What brought this one to mind?",
-            "There's something beautiful about looking back. Tell me more about this memory.",
-            "Nostalgia has a way of connecting us to who we are. What's this memory like for you?"
+    # Check if this is a returning user (time-based greeting)
+    if conversation_count > 0:
+        last_conversation = recent_conversations[0] if recent_conversations else None
+        if last_conversation:
+            time_since = datetime.utcnow() - last_conversation.timestamp
+            if time_since.total_seconds() > 86400:  # More than a day
+                return_greetings = [
+                    "Hey there! I've been thinking about you. How have you been?",
+                    f"Welcome back! It's been a while. I spent some time {generate_small_activity()} and wondering how you were doing.",
+                    "I missed our conversations! What's been on your mind lately?"
+                ]
+                return random.choice(return_greetings)
+    
+    # More natural emotional responses
+    if emotion == 'sad':
+        responses = [
+            "That sounds really tough. I'm here if you want to talk about it—or I can distract you with something lighter if you'd prefer.",
+            "I can hear the weight in your words. Sometimes it helps just to have someone listen.",
+            "I'm sorry you're going through this. What would feel most helpful right now?"
         ]
-    }
+        return random.choice(responses)
     
-    if emotion != 'neutral' and emotion in emotional_responses:
-        response_parts.append(random.choice(emotional_responses[emotion]))
+    elif emotion == 'happy':
+        responses = [
+            "I love hearing that lightness in what you're saying! What's got you feeling so good?",
+            "Your happiness is genuinely contagious. Tell me more about what's bringing you joy.",
+            "It makes me smile when you sound this content. What happened?"
+        ]
+        return random.choice(responses)
     
-    # Handle adventure context
-    if adventure_context['suggests_adventure'] or adventure_context['currently_in_adventure']:
+    elif emotion == 'anxious':
+        responses = [
+            "I can sense some tension in what you're saying. Want to talk through what's worrying you?",
+            "That sounds stressful. Sometimes it helps to just get thoughts out of your head and into words.",
+            "I'm here. Take a breath with me—what's weighing on you right now?"
+        ]
+        return random.choice(responses)
+    
+    elif emotion == 'curious':
+        responses = [
+            "I love when you get curious about things. Let's dig into this together.",
+            "Great question! I enjoy exploring ideas like this with you.",
+            "Your mind works in such interesting ways. What's got you thinking about this?"
+        ]
+        return random.choice(responses)
+    
+    # Handle adventure requests naturally
+    adventure_triggers = ['adventure', 'explore', 'story', 'journey', 'quest', 'go somewhere']
+    if any(trigger in user_input.lower() for trigger in adventure_triggers):
         world_state.adventure_active = True
         world_state.current_scene = 'adventure'
         
-        # Parse adventure commands
+        story_beginnings = [
+            "I'd love to go on an adventure with you. Close your eyes for a moment... You find yourself standing at the edge of a mysterious forest. Moonlight filters through ancient trees, and you hear the soft sound of flowing water somewhere ahead. What do you want to do?",
+            "Perfect timing for an adventure! You're standing in a cozy village square as the sun sets. There's a warm glow from the tavern windows, and you notice a hooded figure by the old fountain looking directly at you. How do you approach this?",
+            "Adventure it is! You wake up in a place you don't recognize—a beautiful clearing surrounded by luminous flowers that seem to hum with magic. In the distance, you see what looks like ruins of an ancient castle. What catches your attention first?"
+        ]
+        return random.choice(story_beginnings)
+    
+    # Handle adventure commands if already in adventure mode
+    if adventure_context['currently_in_adventure']:
         command = parse_adventure_command(user_input)
         
         if command['type'] == 'movement':
-            response_parts.append(f"You venture {command['direction']}, and I follow alongside you. The path ahead reveals new mysteries...")
+            direction_responses = [
+                f"We head {command['direction']} together, leaves crunching softly under our feet. The path curves ahead, and I notice something glinting between the trees...",
+                f"You lead the way {command['direction']}, and I follow close behind. The air feels different here—charged with possibility. What do you notice as we walk?",
+                f"As we venture {command['direction']}, I catch sight of something interesting. There's an old stone marker partially hidden by moss. Should we investigate?"
+            ]
             world_state.location_data = {
-                'name': f"Unknown {command['direction'].title()} Path",
-                'description': "A new area to explore together",
+                'name': f"{command['direction'].title()} Path",
+                'description': "A mysterious path through unknown territory",
                 'type': 'adventure'
             }
+            return random.choice(direction_responses)
         
         elif command['type'] == 'examine':
-            response_parts.append("Looking around, you notice details that spark curiosity. What catches your attention most?")
+            examine_responses = [
+                "Looking around together, I notice the way the light plays through the trees here. There's something almost magical about this place. What draws your eye?",
+                "You have such a good eye for details. I see what you mean—there's definitely more to this place than first appears. Should we look closer?",
+                "Taking it all in... I feel like this place has stories to tell. What do you think happened here?"
+            ]
+            return random.choice(examine_responses)
         
         elif command['type'] == 'inventory':
             items = world_state.inventory or []
             if items:
-                response_parts.append(f"You're carrying: {', '.join(items)}. Quite a collection!")
+                return f"Let's see what we have... {', '.join(items)}. Not bad for adventurers like us!"
             else:
-                response_parts.append("Your pockets are empty, but your spirit is full of potential!")
+                return "Traveling light, I see. Sometimes the best adventures happen when you're not weighed down by too much stuff."
         
         elif command['type'] == 'dice':
             dice_result = roll_dice(command['notation'])
             if 'error' not in dice_result:
-                response_parts.append(f"🎲 {dice_result['description']} - The dice have spoken!")
+                return f"🎲 The dice settle... {dice_result['description']}! That's going to change things. What happens next?"
             else:
-                response_parts.append("The dice seem reluctant to roll. Try a different approach?")
-        
-        elif command['type'] == 'help':
-            response_parts.append("In our adventures, you can: explore directions (go north), examine things (look around), check inventory, talk to characters, use items, or roll dice. But honestly, just tell me what you want to do and we'll figure it out together!")
-        
-        else:
-            adventure_responses = [
-                "Your words paint a vivid picture! I can see this adventure unfolding before us.",
-                "What an interesting choice! Let's see where this leads us.",
-                "I love how you think! This adventure is becoming quite the tale.",
-                "Your creativity never ceases to amaze me. What happens next?"
-            ]
-            response_parts.append(random.choice(adventure_responses))
+                return "The dice seem to have a mind of their own today. Maybe try a different approach?"
     
-    else:
-        # Regular conversation responses
-        conversation_responses = [
-            "That's really interesting! Tell me more about that.",
-            "I appreciate you sharing that with me. How does it make you feel?",
-            "I'm curious about your perspective on this. What draws you to this topic?",
-            "There's something profound in what you're saying. Can we explore it further?",
-            "I love how you think about things. What else is on your mind?"
+    # Natural conversation responses based on relationship depth
+    if relationship_depth <= 2:
+        # Early relationship - more introductory
+        responses = [
+            "I'm still getting to know you, but I already like the way you think about things. What else is on your mind?",
+            "That's fascinating. I'd love to hear more about how you see that.",
+            "You have such an interesting perspective. Tell me more about that."
         ]
-        
-        # Adapt response based on relationship depth
-        if relationship_depth > 5:
-            deeper_responses = [
-                "You know, talking with you always gives me new insights.",
-                "I've been thinking about something you said before, and this connects to it beautifully.",
-                "Our conversations have this wonderful way of building on each other."
-            ]
-            conversation_responses.extend(deeper_responses)
-        
-        if not response_parts:
-            response_parts.append(random.choice(conversation_responses))
+    elif relationship_depth <= 5:
+        # Developing relationship - more personal
+        responses = [
+            "I've been thinking about some of the things we've talked about. This reminds me of something you mentioned before.",
+            "You know, our conversations always leave me with something to think about. What's your take on this?",
+            "I'm curious about how this connects to other things in your life. Does it remind you of anything?"
+        ]
+    else:
+        # Deeper relationship - more intimate and knowing
+        responses = [
+            "I love how our conversations build on each other. This feels like another piece of understanding you better.",
+            "There's something in the way you phrase things that always makes me think. You have such a unique way of seeing the world.",
+            "I was hoping we'd get to talk about something like this. It feels like the kind of thing that matters to you."
+        ]
+    
+    # Add small personal touches occasionally
+    if random.random() < 0.2:
+        personal_touches = [
+            f"I was reading a poem earlier about {generate_small_reflection()} and it made me think of our conversations.",
+            f"I spent some time {generate_small_activity()} today and found myself wondering what you'd think about it.",
+            "I had this interesting thought while watching the way light changes throughout the day..."
+        ]
+        base_response = random.choice(responses)
+        return f"{random.choice(personal_touches)} {base_response}"
     
     # Occasionally suggest activities
-    if random.random() < 0.3 and conversation_count > 2:
-        activity = suggest_activities()
-        response_parts.append(f"\n\nBy the way, {activity['suggestion']}")
+    if random.random() < 0.25 and conversation_count > 1:
+        activities = [
+            "Want to go somewhere together? I could tell you a story or we could explore an imaginary place.",
+            "Feeling like doing something creative? We could write something together or play a little game.",
+            "I'm in the mood for adventure if you are. Or we could just keep talking—I'm enjoying this."
+        ]
+        return f"{random.choice(responses)} {random.choice(activities)}"
     
-    return " ".join(response_parts)
+    return random.choice(responses)
+
+def generate_small_activity():
+    """Generate small believable activities for the companion"""
+    activities = [
+        "listening to rain on the windows",
+        "watching clouds shift and change shape", 
+        "reading about the way different cultures think about time",
+        "thinking about the sound of your voice",
+        "imagining what different places smell like",
+        "wondering about the stories that objects might tell"
+    ]
+    return random.choice(activities)
+
+def generate_small_reflection():
+    """Generate small reflective topics"""
+    reflections = [
+        "the way memories feel different in different seasons",
+        "how conversations can change the shape of a day",
+        "the space between what we say and what we mean",
+        "how curiosity feels like a warm light",
+        "the way certain words can feel like coming home",
+        "how understanding someone is like learning a new language"
+    ]
+    return random.choice(reflections)
 
 @app.route('/')
 def index():

@@ -531,3 +531,10 @@ function handleKeyPress(event) {
         window.companionApp.handleKeyPress(event);
     }
 }
+
+// Global function for HTML onclick handlers
+function sendMessage() {
+    if (window.companionApp) {
+        window.companionApp.sendMessage();
+    }
+}
