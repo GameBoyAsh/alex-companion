@@ -1,0 +1,8 @@
+{
+  "conversations": [],
+  "companion_state": {
+    "emotion": "neutral",
+    "last_interaction": null,
+    "personality_traits": ["friendly", "curious", "helpful"]
+  }
+}
