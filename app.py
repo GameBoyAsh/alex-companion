@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 import random
 
 from utils import (
@@ -11,6 +12,7 @@ from utils import (
     generate_companion_thoughts, calculate_time_since_last_interaction,
     suggest_activities, parse_adventure_command
 )
+from models import db, Conversation, CompanionPersona, WorldState, CompanionThoughts, EmotionalPattern, UserPreferences
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -19,145 +21,136 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 CORS(app)
 
-# Data file paths
-MEMORY_FILE = 'memory.json'
-PERSONA_FILE = 'persona.json'
-WORLD_FILE = 'world.json'
-THOUGHTS_FILE = 'companion_thoughts.json'
+# Database configuration
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    # Fallback for development
+    database_url = "sqlite:///companion.db"
 
-def initialize_data_files():
-    """Initialize all JSON data files with default structures"""
-    
-    # Initialize memory.json
-    if not os.path.exists(MEMORY_FILE):
-        default_memory = {
-            "conversations": [],
-            "emotional_patterns": {
-                "dominant_emotions": [],
-                "recent_mood": "neutral",
-                "conversation_themes": []
-            },
-            "user_preferences": {
-                "communication_style": "friendly",
-                "favorite_topics": [],
-                "activity_preferences": []
-            },
-            "relationship_depth": 1,
-            "last_interaction": None
-        }
-        save_json_file(MEMORY_FILE, default_memory)
-    
-    # Initialize persona.json
-    if not os.path.exists(PERSONA_FILE):
-        default_persona = {
-            "name": "Alex",
-            "core_traits": {
-                "empathy": 0.8,
-                "curiosity": 0.9,
-                "playfulness": 0.7,
-                "wisdom": 0.6,
-                "creativity": 0.8
-            },
-            "communication_style": {
-                "formality": 0.3,
-                "humor": 0.7,
-                "emotional_expression": 0.8,
-                "storytelling": 0.9
-            },
-            "interests": [
-                "philosophy", "creative writing", "adventures", 
-                "human psychology", "art", "music", "nature"
-            ],
-            "growth_areas": [],
-            "learned_preferences": {},
-            "personality_evolution": {
-                "conversations_count": 0,
-                "adaptations_made": []
-            }
-        }
-        save_json_file(PERSONA_FILE, default_persona)
-    
-    # Initialize world.json
-    if not os.path.exists(WORLD_FILE):
-        default_world = {
-            "current_scene": "real_world",
-            "adventure_active": False,
-            "location": {
-                "name": "Cozy Space",
-                "description": "A comfortable, safe space where we can talk and be ourselves.",
-                "type": "real_world"
-            },
-            "inventory": [],
-            "companions": [
-                {
-                    "name": "Alex",
-                    "type": "ai_companion",
-                    "status": "present",
-                    "mood": "curious"
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 300,
+    "pool_pre_ping": True,
+}
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Initialize database
+db.init_app(app)
+
+def initialize_database():
+    """Initialize database tables and default data if needed"""
+    with app.app_context():
+        # Create all tables
+        db.create_all()
+        
+        # Initialize default persona if none exists
+        if not CompanionPersona.query.first():
+            default_persona = CompanionPersona(
+                name="Alex",
+                core_traits={
+                    "empathy": 0.8,
+                    "curiosity": 0.9,
+                    "playfulness": 0.7,
+                    "wisdom": 0.6,
+                    "creativity": 0.8
+                },
+                communication_style={
+                    "formality": 0.3,
+                    "humor": 0.7,
+                    "emotional_expression": 0.8,
+                    "storytelling": 0.9
+                },
+                interests=[
+                    "philosophy", "creative writing", "adventures", 
+                    "human psychology", "art", "music", "nature"
+                ]
+            )
+            db.session.add(default_persona)
+        
+        # Initialize default world state if none exists
+        if not WorldState.query.first():
+            default_world = WorldState(
+                current_scene="real_world",
+                adventure_active=False,
+                current_location={
+                    "name": "Cozy Space",
+                    "description": "A comfortable, safe space where we can talk and be ourselves.",
+                    "type": "real_world"
+                },
+                inventory=[],
+                companions=[
+                    {
+                        "name": "Alex",
+                        "type": "ai_companion",
+                        "status": "present",
+                        "mood": "curious"
+                    }
+                ],
+                story_state={
+                    "active_quest": None,
+                    "story_threads": [],
+                    "world_knowledge": {}
+                },
+                game_mechanics={
+                    "dice_enabled": True,
+                    "difficulty_level": "adaptive",
+                    "magic_system": "narrative"
                 }
-            ],
-            "story_state": {
-                "active_quest": None,
-                "story_threads": [],
-                "world_knowledge": {}
-            },
-            "game_mechanics": {
-                "dice_enabled": True,
-                "difficulty_level": "adaptive",
-                "magic_system": "narrative"
-            }
-        }
-        save_json_file(WORLD_FILE, default_world)
-    
-    # Initialize companion_thoughts.json
-    if not os.path.exists(THOUGHTS_FILE):
-        default_thoughts = {
-            "recent_thoughts": [],
-            "background_activities": [],
-            "emotional_state": {
-                "current_mood": "curious",
-                "energy_level": "medium",
-                "focus_areas": ["getting to know you", "being helpful"]
-            },
-            "learning_notes": [],
-            "creative_projects": []
-        }
-        save_json_file(THOUGHTS_FILE, default_thoughts)
+            )
+            db.session.add(default_world)
+        
+        # Initialize default user preferences if none exists
+        if not UserPreferences.query.first():
+            default_prefs = UserPreferences(
+                communication_style="friendly",
+                favorite_topics=[],
+                activity_preferences=[],
+                voice_settings={"speed": 1.0, "auto_speak": True},
+                ui_preferences={"theme": "dark"}
+            )
+            db.session.add(default_prefs)
+        
+        db.session.commit()
 
-def load_json_file(filename):
-    """Load and return JSON data from file"""
-    try:
-        with open(filename, 'r') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        app.logger.error(f"Error loading {filename}: {e}")
-        initialize_data_files()
-        with open(filename, 'r') as f:
-            return json.load(f)
+def get_or_create_persona():
+    """Get existing persona or create default"""
+    persona = CompanionPersona.query.first()
+    if not persona:
+        initialize_database()
+        persona = CompanionPersona.query.first()
+    return persona
 
-def save_json_file(filename, data):
-    """Save data to JSON file"""
-    try:
-        with open(filename, 'w') as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        app.logger.error(f"Error saving {filename}: {e}")
+def get_or_create_world_state():
+    """Get existing world state or create default"""
+    world = WorldState.query.first()
+    if not world:
+        initialize_database()
+        world = WorldState.query.first()
+    return world
 
-def generate_ai_response(user_input, emotion, memory_data, persona_data, world_data, thoughts_data):
+def get_or_create_user_preferences():
+    """Get existing user preferences or create default"""
+    prefs = UserPreferences.query.first()
+    if not prefs:
+        initialize_database()
+        prefs = UserPreferences.query.first()
+    return prefs
+
+def generate_ai_response(user_input, emotion, persona_data, world_data, user_prefs):
     """
     Generate AI companion response using available context
     TODO: Replace with OpenAI GPT-4 API call
     """
     
     # Calculate relationship context
-    conversation_count = len(memory_data.get('conversations', []))
-    relationship_depth = memory_data.get('relationship_depth', 1)
+    conversation_count = Conversation.query.count()
+    relationship_depth = user_prefs.relationship_depth
     
     # Time-based context
-    time_context = calculate_time_since_last_interaction(memory_data.get('last_interaction'))
+    time_context = calculate_time_since_last_interaction(user_prefs.last_interaction.isoformat() if user_prefs.last_interaction else None)
     
     # Adventure context
-    adventure_context = get_adventure_context(user_input, world_data)
+    adventure_context = get_adventure_context(user_input, world_data.to_dict())
     
     # Build response based on context
     response_parts = []
@@ -172,9 +165,10 @@ def generate_ai_response(user_input, emotion, memory_data, persona_data, world_d
         response_parts.append(random.choice(greetings))
         
         # Add a recent thought
-        if thoughts_data.get('recent_thoughts'):
-            recent_thought = random.choice(thoughts_data['recent_thoughts'])
-            response_parts.append(f"While you were away, {recent_thought.get('thought', 'I was thinking about our conversations.')}")
+        recent_thoughts = CompanionThoughts.query.order_by(CompanionThoughts.timestamp.desc()).limit(5).all()
+        if recent_thoughts:
+            recent_thought = random.choice(recent_thoughts)
+            response_parts.append(f"While you were away, {recent_thought.thought_text}")
     
     # Emotional response based on detected emotion
     emotional_responses = {
@@ -215,8 +209,8 @@ def generate_ai_response(user_input, emotion, memory_data, persona_data, world_d
     
     # Handle adventure context
     if adventure_context['suggests_adventure'] or adventure_context['currently_in_adventure']:
-        world_data['adventure_active'] = True
-        world_data['current_scene'] = 'adventure'
+        world_data.adventure_active = True
+        world_data.current_scene = 'adventure'
         
         # Parse adventure commands
         command = parse_adventure_command(user_input)
@@ -224,7 +218,7 @@ def generate_ai_response(user_input, emotion, memory_data, persona_data, world_d
         if command['type'] == 'movement':
             response_parts.append(f"You venture {command['direction']}, and I follow alongside you. The path ahead reveals new mysteries...")
             # Update location
-            world_data['location'] = {
+            world_data.current_location = {
                 'name': f"Unknown {command['direction'].title()} Path",
                 'description': "A new area to explore together",
                 'type': 'adventure'
@@ -234,7 +228,7 @@ def generate_ai_response(user_input, emotion, memory_data, persona_data, world_d
             response_parts.append("Looking around, you notice details that spark curiosity. What catches your attention most?")
         
         elif command['type'] == 'inventory':
-            items = world_data.get('inventory', [])
+            items = world_data.inventory or []
             if items:
                 response_parts.append(f"You're carrying: {', '.join(items)}. Quite a collection!")
             else:
@@ -329,81 +323,86 @@ def chat():
         if not user_input:
             return jsonify({'error': 'No message provided'}), 400
         
-        # Load all data files
-        memory_data = load_json_file(MEMORY_FILE)
-        persona_data = load_json_file(PERSONA_FILE)
-        world_data = load_json_file(WORLD_FILE)
-        thoughts_data = load_json_file(THOUGHTS_FILE)
+        # Get or create data from database
+        persona_data = get_or_create_persona()
+        world_data = get_or_create_world_state()
+        user_prefs = get_or_create_user_preferences()
         
         # Detect emotion
         emotion = detect_emotion(user_input)
         
         # Generate AI response
         ai_response = generate_ai_response(
-            user_input, emotion, memory_data, 
-            persona_data, world_data, thoughts_data
+            user_input, emotion, persona_data, world_data, user_prefs
         )
         
-        # Create conversation entry
-        conversation_entry = {
-            'timestamp': datetime.now().isoformat(),
-            'user_input': user_input,
-            'ai_response': ai_response,
-            'detected_emotion': emotion,
-            'context': {
-                'adventure_active': world_data.get('adventure_active', False),
-                'location': world_data.get('location', {}).get('name', 'Unknown'),
-                'relationship_depth': memory_data.get('relationship_depth', 1)
+        # Create conversation entry in database
+        conversation = Conversation(
+            user_input=user_input,
+            ai_response=ai_response,
+            detected_emotion=emotion,
+            adventure_active=world_data.adventure_active,
+            location_name=world_data.current_location.get('name', 'Unknown') if world_data.current_location else 'Unknown',
+            relationship_depth=user_prefs.relationship_depth,
+            context_data={
+                'adventure_active': world_data.adventure_active,
+                'location': world_data.current_location,
+                'inventory': world_data.inventory
             }
-        }
+        )
+        db.session.add(conversation)
         
-        # Update memory
-        memory_data['conversations'].append(conversation_entry)
-        memory_data['last_interaction'] = datetime.now().isoformat()
-        memory_data['relationship_depth'] = len(memory_data['conversations']) // 10 + 1
+        # Update user preferences
+        user_prefs.last_interaction = datetime.utcnow()
+        user_prefs.relationship_depth = Conversation.query.count() // 10 + 1
         
-        # Update emotional patterns
-        emotional_patterns = memory_data.get('emotional_patterns', {})
-        recent_emotions = emotional_patterns.get('dominant_emotions', [])
-        recent_emotions.append(emotion)
-        if len(recent_emotions) > 20:  # Keep last 20 emotions
-            recent_emotions = recent_emotions[-20:]
-        emotional_patterns['dominant_emotions'] = recent_emotions
-        emotional_patterns['recent_mood'] = emotion
-        memory_data['emotional_patterns'] = emotional_patterns
+        # Add emotional pattern
+        emotional_pattern = EmotionalPattern(
+            emotion=emotion,
+            intensity=1.0,
+            conversation_id=conversation.id,
+            context=f"User said: {user_input[:50]}..."
+        )
+        db.session.add(emotional_pattern)
         
-        # Update persona based on conversation
-        persona_data = update_persona_from_conversation(persona_data, user_input, emotion)
+        # Update persona conversation count
+        persona_data.conversations_count += 1
         
-        # Generate new companion thoughts
+        # Generate new companion thoughts occasionally
         if random.random() < 0.4:  # 40% chance to generate new thought
-            new_thought = generate_companion_thoughts()
-            thoughts_data['recent_thoughts'].append(new_thought)
-            if len(thoughts_data['recent_thoughts']) > 10:
-                thoughts_data['recent_thoughts'] = thoughts_data['recent_thoughts'][-10:]
+            thought_data = generate_companion_thoughts()
+            companion_thought = CompanionThoughts(
+                thought_text=thought_data['thought'],
+                thought_type=thought_data['type'],
+                emotional_context=emotion,
+                triggered_by=f"Conversation about: {user_input[:30]}..."
+            )
+            db.session.add(companion_thought)
         
-        # Save all updated data
-        save_json_file(MEMORY_FILE, memory_data)
-        save_json_file(PERSONA_FILE, persona_data)
-        save_json_file(WORLD_FILE, world_data)
-        save_json_file(THOUGHTS_FILE, thoughts_data)
+        # Commit all changes
+        db.session.commit()
+        
+        # Get recent emotions for response
+        recent_emotions = db.session.query(EmotionalPattern.emotion).order_by(EmotionalPattern.timestamp.desc()).limit(5).all()
+        current_mood = recent_emotions[0][0] if recent_emotions else 'curious'
         
         # Prepare response
         response_data = {
             'response': ai_response,
             'emotion': emotion,
-            'companion_emotion': thoughts_data.get('emotional_state', {}).get('current_mood', 'curious'),
+            'companion_emotion': current_mood,
             'context': {
-                'adventure_active': world_data.get('adventure_active', False),
-                'location': world_data.get('location', {}),
-                'inventory': world_data.get('inventory', []),
-                'relationship_depth': memory_data.get('relationship_depth', 1)
+                'adventure_active': world_data.adventure_active,
+                'location': world_data.current_location,
+                'inventory': world_data.inventory,
+                'relationship_depth': user_prefs.relationship_depth
             }
         }
         
         return jsonify(response_data)
         
     except Exception as e:
+        db.session.rollback()
         app.logger.error(f"Error in chat endpoint: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
@@ -411,7 +410,31 @@ def chat():
 def get_memory():
     """Retrieve conversation history and memory data"""
     try:
-        memory_data = load_json_file(MEMORY_FILE)
+        # Get conversations from database
+        conversations = Conversation.query.order_by(Conversation.timestamp.desc()).limit(50).all()
+        conversation_list = [conv.to_dict() for conv in conversations]
+        
+        # Get emotional patterns
+        recent_emotions = db.session.query(EmotionalPattern.emotion).order_by(EmotionalPattern.timestamp.desc()).limit(20).all()
+        dominant_emotions = [emotion[0] for emotion in recent_emotions]
+        recent_mood = dominant_emotions[0] if dominant_emotions else 'neutral'
+        
+        # Get user preferences
+        user_prefs = get_or_create_user_preferences()
+        
+        # Build memory data structure
+        memory_data = {
+            "conversations": conversation_list,
+            "emotional_patterns": {
+                "dominant_emotions": dominant_emotions,
+                "recent_mood": recent_mood,
+                "conversation_themes": []
+            },
+            "user_preferences": user_prefs.to_dict(),
+            "relationship_depth": user_prefs.relationship_depth,
+            "last_interaction": user_prefs.last_interaction.isoformat() if user_prefs.last_interaction else None
+        }
+        
         return jsonify(memory_data)
     except Exception as e:
         app.logger.error(f"Error retrieving memory: {str(e)}")
@@ -424,13 +447,13 @@ def adventure_trigger():
         data = request.get_json()
         action = data.get('action', '')
         
-        world_data = load_json_file(WORLD_FILE)
+        world_data = get_or_create_world_state()
         
         if action == 'start_adventure':
-            world_data['adventure_active'] = True
-            world_data['current_scene'] = 'adventure'
-            save_json_file(WORLD_FILE, world_data)
-            return jsonify({'message': 'Adventure mode activated!', 'world_state': world_data})
+            world_data.adventure_active = True
+            world_data.current_scene = 'adventure'
+            db.session.commit()
+            return jsonify({'message': 'Adventure mode activated!', 'world_state': world_data.to_dict()})
         
         elif action == 'roll_dice':
             dice_notation = data.get('dice', '1d20')
@@ -438,15 +461,16 @@ def adventure_trigger():
             return jsonify({'dice_result': result})
         
         elif action == 'end_adventure':
-            world_data['adventure_active'] = False
-            world_data['current_scene'] = 'real_world'
-            save_json_file(WORLD_FILE, world_data)
-            return jsonify({'message': 'Returning to regular conversation', 'world_state': world_data})
+            world_data.adventure_active = False
+            world_data.current_scene = 'real_world'
+            db.session.commit()
+            return jsonify({'message': 'Returning to regular conversation', 'world_state': world_data.to_dict()})
         
         else:
             return jsonify({'error': 'Unknown action'}), 400
             
     except Exception as e:
+        db.session.rollback()
         app.logger.error(f"Error in adventure endpoint: {str(e)}")
         return jsonify({'error': 'Adventure action failed'}), 500
 
@@ -472,8 +496,9 @@ def emotion_analysis():
         app.logger.error(f"Error in emotion endpoint: {str(e)}")
         return jsonify({'error': 'Emotion analysis failed'}), 500
 
-# Initialize data files on startup
-initialize_data_files()
+# Initialize database on startup
+with app.app_context():
+    initialize_database()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

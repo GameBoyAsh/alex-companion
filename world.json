@@ -77,5 +77,7 @@
     "level": 1,
     "experience": 0
   },
-  "companion_emotion": "neutral"
+  "companion_emotion": "neutral",
+  "adventure_active": true,
+  "current_scene": "adventure"
 }

@@ -20,6 +20,28 @@
       "ai_response": "Your feelings are valid. Sometimes sharing what's on your mind can help lighten the burden.",
       "detected_emotion": "sad",
       "mode": "companion"
+    },
+    {
+      "timestamp": "2025-06-01T12:47:29.246568",
+      "user_input": "I'm feeling wonderful today Alex, how are you doing?",
+      "ai_response": "Your inquisitive nature is one of my favorite things about you. Your words paint a vivid picture! I can see this adventure unfolding before us.",
+      "detected_emotion": "curious",
+      "context": {
+        "adventure_active": true,
+        "location": "Unknown",
+        "relationship_depth": 1
+      }
+    },
+    {
+      "timestamp": "2025-06-01T13:04:33.930634",
+      "user_input": "How are you doing today Alex, what's on your mind",
+      "ai_response": "I love your curiosity! Let's explore this together. Your creativity never ceases to amaze me. What happens next?",
+      "detected_emotion": "curious",
+      "context": {
+        "adventure_active": true,
+        "location": "Unknown",
+        "relationship_depth": 1
+      }
     }
   ],
   "companion_state": {
@@ -30,5 +52,14 @@
       "curious",
       "helpful"
     ]
+  },
+  "last_interaction": "2025-06-01T13:04:33.930641",
+  "relationship_depth": 1,
+  "emotional_patterns": {
+    "dominant_emotions": [
+      "curious",
+      "curious"
+    ],
+    "recent_mood": "curious"
   }
 }
